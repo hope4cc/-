@@ -1,0 +1,368 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.paopao.mapper.MessageMapper">
+
+	<!--<cache />-->
+	<cache-ref namespace="com.paopao.mapper.CrewMapper"/>
+
+	<resultMap id="messageResultMap" type="com.paopao.model.pojo.Message">
+		<id property="id" column="id"/>
+		<result property="html" column="html"/>
+		<result property="createTime" column="createTime"/>
+		<result property="creator" column="creator"/>
+		<result property="creatorName" column="creatorName"/>
+		<result property="avatarUrl" column="avatarUrl"/>
+		<result property="curUserId" column="curUserId"/>
+		<result property="likeRecordId" column="likeRecordId"/>
+		<result property="likeNums" column="likeNums"/>
+		<result property="retweetorId" column="retweetorId"/>
+		<result property="retweetTime" column="retweetTime"/>
+		<result property="retweetMessageId" column="retweetMessageId"/>
+		<result property="retweetNums" column="retweetNums"/>
+		<result property="doCurUserRetweet" column="doCurUserRetweet"/>
+		<result property="mail" column="mail"/>
+		<result property="commentNums" column="commentNums"/>
+	</resultMap>
+
+	<select id="selects" resultMap="messageResultMap" parameterType="map">
+		select
+		m.id,
+		m.html,
+		m.createTime,
+		m.creator,
+		c.crewName creatorName,
+		c.avatarUrl avatarUrl,
+		m.retweetorId,
+		m.retweetTime,
+		m.retweetMessageId,
+		rc.crewName as retweetorName,
+		#判断当前用户是否喜欢此伊文
+		case
+		when m.retweetorId &lt;= 0 then IFNULL(l.id, 0)
+		when m.retweetorId &gt; 0 then IFNULL((select id from LIKE_RECORD lr where lr.messageId = m.retweetMessageId and
+		lr.likerId = #{item.curUserId}),0)
+		END as likeRecordId,
+		#判断当前用户是否转推此伊文
+		case
+		when m.retweetorId &gt; 0 AND m.retweetorId = #{item.curUserId} then m.retweetMessageId
+		when m.retweetorId &gt; 0 AND rmrm.retweetorId = #{item.curUserId} then rmrm.retweetMessageId
+		when rm.id &gt; 0 then rm.id
+		when rm.id IS NULL then 0
+		END as doCurUserRetweet,
+		#喜欢数
+		case
+		# 普通Message
+		when m.retweetorId &lt;= 0 then (select count(ln.id) from LIKE_RECORD ln where ln.messageId = m.id)
+		# 转推Message
+		when m.retweetorId &gt; 0 then (select count(ln.id) from LIKE_RECORD ln where ln.messageId = m.retweetMessageId)
+		END as likeNums,
+		#转推数
+		case
+		when m.retweetorId &lt;= 0 then (select count(ret.id) from MESSAGE ret where ret.retweetMessageId = m.id)
+		when m.retweetorId &gt; 0 then (select count(ret.id) from MESSAGE ret where ret.retweetMessageId =
+		m.retweetMessageId)
+		END as retweetNums,
+		#评论数
+		(select count(id) from COMMENT com where com.messageId = m.id) as commentNums
+		from MESSAGE m
+		LEFT JOIN CREW c on m.creator = c.id
+		LEFT JOIN CREW rc on m.retweetorId = rc.id
+		LEFT JOIN LIKE_RECORD l on m.id = l.messageId and l.likerId = #{item.curUserId}
+		LEFT JOIN MESSAGE rm on m.id = rm.retweetMessageId and rm.retweetorId = #{item.curUserId}
+		LEFT JOIN MESSAGE rmrm on m.retweetMessageId = rmrm.retweetMessageId and rmrm.retweetorId = #{item.curUserId}
+		<trim prefix="WHERE" prefixOverrides="AND ">
+			<if test="item != null">
+				<if test="item.id > 0">
+					AND m.id = #{item.id,jdbcType=NUMERIC}
+				</if>
+				<if test="item.html != null and item.html != ''">
+					AND m.html = #{item.html,jdbcType=VARCHAR}
+				</if>
+				<if test="item.createTime != null and item.createTime != ''">
+					AND m.createTime = #{item.createTime,jdbcType=VARCHAR}
+				</if>
+				<if test="item.creator > 0">
+					AND m.creator = #{item.creator,jdbcType=NUMERIC}
+				</if>
+				<if test="item.retweetorId > 0">
+					AND m.retweetorId = #{item.retweetorId,jdbcType=NUMERIC}
+				</if>
+				<if test="item.retweetTime != null and item.retweetTime != ''">
+					AND m.retweetTime = #{item.retweetTime,jdbcType=VARCHAR}
+				</if>
+				<if test="item.retweetMessageId > 0">
+					AND m.retweetMessageId = #{item.retweetMessageId,jdbcType=NUMERIC}
+				</if>
+			</if>
+			<if test="OrRetweetorIdIsMy > 0">
+				OR m.retweetorId = #{OrRetweetorIdIsMy,jdbcType=NUMERIC}
+			</if>
+		</trim>
+		order by m.createTime desc
+		<include refid="com.paopao.mapper.BaseMapper.pager"/>
+	</select>
+
+
+	<select id="ramselects" resultMap="messageResultMap" parameterType="map">
+		select
+		m.id,
+		m.html,
+		m.createTime,
+		m.creator,
+		c.crewName creatorName,
+		c.avatarUrl avatarUrl,
+		m.retweetorId,
+		m.retweetTime,
+		m.retweetMessageId,
+		rc.crewName as retweetorName,
+		#判断当前用户是否喜欢此伊文
+		case
+		when m.retweetorId &lt;= 0 then IFNULL(l.id, 0)
+		when m.retweetorId &gt; 0 then IFNULL((select id from LIKE_RECORD lr where lr.messageId = m.retweetMessageId and
+		lr.likerId = #{item.curUserId}),0)
+		END as likeRecordId,
+		#判断当前用户是否转推此伊文
+		case
+		when m.retweetorId &gt; 0 AND m.retweetorId = #{item.curUserId} then m.retweetMessageId
+		when m.retweetorId &gt; 0 AND rmrm.retweetorId = #{item.curUserId} then rmrm.retweetMessageId
+		when rm.id &gt; 0 then rm.id
+		when rm.id IS NULL then 0
+		END as doCurUserRetweet,
+		#喜欢数
+		case
+		# 普通Message
+		when m.retweetorId &lt;= 0 then (select count(ln.id) from LIKE_RECORD ln where ln.messageId = m.id)
+		# 转推Message
+		when m.retweetorId &gt; 0 then (select count(ln.id) from LIKE_RECORD ln where ln.messageId = m.retweetMessageId)
+		END as likeNums,
+		#转推数
+		case
+		when m.retweetorId &lt;= 0 then (select count(ret.id) from MESSAGE ret where ret.retweetMessageId = m.id)
+		when m.retweetorId &gt; 0 then (select count(ret.id) from MESSAGE ret where ret.retweetMessageId =
+		m.retweetMessageId)
+		END as retweetNums,
+		#评论数
+		(select count(id) from COMMENT com where com.messageId = m.id) as commentNums
+		from MESSAGE m
+		LEFT JOIN CREW c on m.creator = c.id
+		LEFT JOIN CREW rc on m.retweetorId = rc.id
+		LEFT JOIN LIKE_RECORD l on m.id = l.messageId and l.likerId = #{item.curUserId}
+		LEFT JOIN MESSAGE rm on m.id = rm.retweetMessageId and rm.retweetorId = #{item.curUserId}
+		LEFT JOIN MESSAGE rmrm on m.retweetMessageId = rmrm.retweetMessageId and rmrm.retweetorId = #{item.curUserId}
+		<trim prefix="WHERE" prefixOverrides="AND ">
+			<if test="item != null">
+				<if test="item.id > 0">
+					AND m.id = #{item.id,jdbcType=NUMERIC}
+				</if>
+				<if test="item.html != null and item.html != ''">
+					AND m.html = #{item.html,jdbcType=VARCHAR}
+				</if>
+				<if test="item.createTime != null and item.createTime != ''">
+					AND m.createTime = #{item.createTime,jdbcType=VARCHAR}
+				</if>
+				<if test="item.creator > 0">
+					AND m.creator = #{item.creator,jdbcType=NUMERIC}
+				</if>
+				<if test="item.retweetorId > 0">
+					AND m.retweetorId = #{item.retweetorId,jdbcType=NUMERIC}
+				</if>
+				<if test="item.retweetTime != null and item.retweetTime != ''">
+					AND m.retweetTime = #{item.retweetTime,jdbcType=VARCHAR}
+				</if>
+				<if test="item.retweetMessageId > 0">
+					AND m.retweetMessageId = #{item.retweetMessageId,jdbcType=NUMERIC}
+				</if>
+			</if>
+			<if test="OrRetweetorIdIsMy > 0">
+				OR m.retweetorId = #{OrRetweetorIdIsMy,jdbcType=NUMERIC}
+			</if>
+		</trim>
+		order by rand(),m.id
+
+		<include refid="com.paopao.mapper.BaseMapper.pager"/>
+	</select>
+
+	<insert id="inserts" useGeneratedKeys="true" keyProperty="id">
+		insert into MESSAGE
+		(
+		html,
+		createTime,
+		creator,
+		retweetorId,
+		retweetTime,
+		retweetMessageId
+		)
+		values
+		<foreach item="item" collection="list" separator=",">
+			(
+			#{item.html,jdbcType=VARCHAR},
+			#{item.createTime,jdbcType=VARCHAR},
+			#{item.creator,jdbcType=NUMERIC}
+			<if test="item.retweetorId == 0">
+				,
+				#{item.retweetorId,jdbcType=NUMERIC},
+				null,
+				null
+			</if>
+			<if test="item.retweetorId > 0">
+				,
+				#{item.retweetorId,jdbcType=NUMERIC},
+				#{item.retweetTime,jdbcType=VARCHAR},
+				#{item.retweetMessageId,jdbcType=NUMERIC}
+			</if>
+			)
+		</foreach>
+	</insert>
+
+	<delete id="delete">
+		delete
+		from MESSAGE
+		where id = #{id}
+	</delete>
+
+	<delete id="deletes">
+		delete from MESSAGE where id in
+		<foreach collection="ids" item="id" open="(" close=")" separator=",">
+			#{id}
+		</foreach>
+	</delete>
+
+	<update id="update">
+		update MESSAGE set
+		<trim prefix="" suffixOverrides=",">
+			<if test="html != null and html != ''">
+				html = #{html,jdbcType=VARCHAR},
+			</if>
+			<if test="createTime != null and createTime != ''">
+				createTime = #{createTime,jdbcType=VARCHAR},
+			</if>
+			<if test="creator != null">
+				creator = #{creator,jdbcType=NUMERIC},
+			</if>
+			<if test="retweetorId > 0">
+				retweetorId = #{retweetorId,jdbcType=NUMERIC},
+			</if>
+			<if test="retweetTime != null and createTime != ''">
+				retweetTime = #{retweetTime,jdbcType=VARCHAR},
+			</if>
+			<if test="retweetMessageId > 0">
+				retweetMessageId = #{retweetMessageId,jdbcType=NUMERIC},
+			</if>
+		</trim>
+		where id = #{id}
+	</update>
+
+	<!-- TODO 这种row-by-row方式以后改成更高效的 -->
+	<update id="updates">
+		<foreach collection="items" item="item" open="" close="" separator=";">
+			update MESSAGE set
+			<trim prefix="" suffixOverrides=",">
+				<if test="item.html != null and item.html != ''">
+					html = #{item.html,jdbcType=VARCHAR},
+				</if>
+				<if test="item.createTime != null and item.createTime != ''">
+					createTime = #{item.createTime,jdbcType=VARCHAR},
+				</if>
+				<if test="item.creator != null">
+					creator = #{item.creator,jdbcType=NUMERIC},
+				</if>
+				<if test="retweetorId > 0">
+					retweetorId = #{retweetorId,jdbcType=NUMERIC},
+				</if>
+				<if test="retweetTime != null and createTime != ''">
+					retweetTime = #{retweetTime,jdbcType=VARCHAR},
+				</if>
+				<if test="retweetMessageId > 0">
+					retweetMessageId = #{retweetMessageId,jdbcType=NUMERIC},
+				</if>
+			</trim>
+			where id = ${item.id}
+		</foreach>
+	</update>
+
+	<!-- 其余自定义业务逻辑 -->
+	<select id="getFollowingMessage" resultMap="messageResultMap">
+		select m.id,
+			   m.html,
+			   m.createTime,
+			   m.creator,
+			   c.crewName  as creatorName,
+			   c.avatarUrl as avatarUrl,
+			   m.retweetorId,
+			   m.retweetTime,
+			   m.retweetMessageId,
+			   rc.crewName as retweetorName,
+			   #判断当前用户是否喜欢此伊文
+			   case
+				   when m.retweetorId &lt;= 0 then IFNULL(l.id, 0)
+				   when m.retweetorId &gt; 0 then IFNULL((select id
+														  from LIKE_RECORD lr
+														  where lr.messageId = m.retweetMessageId
+															and lr.likerId = ${id}), 0)
+				   END     as likeRecordId,
+			   #判断当前用户是否转推此伊文
+			   case
+				   when m.retweetorId &gt; 0 AND m.retweetorId = ${id} then m.retweetMessageId
+				   when m.retweetorId &gt; 0 AND rmrm.retweetorId = ${id} then rmrm.retweetMessageId
+				   when rm.id &gt; 0 then rm.id
+				   when rm.id IS NULL then 0
+				   END     as doCurUserRetweet,
+			   #喜欢数
+			   case
+				   # 普通Message
+				   when m.retweetorId &lt;= 0 then (select count(ln.id) from LIKE_RECORD ln where ln.messageId = m.id)
+				   # 转推Message
+				   when m.retweetorId &gt; 0 then (select count(ln.id)
+												   from LIKE_RECORD ln
+												   where ln.messageId = m.retweetMessageId)
+				   END     as likeNums,
+			   #转推数
+			   case
+				   when m.retweetorId &lt;= 0 then (select count(ret.id)
+													from MESSAGE ret
+													where ret.retweetMessageId = m.id)
+				   when m.retweetorId &gt; 0 then (select count(ret.id)
+												   from MESSAGE ret
+												   where ret.retweetMessageId = m.retweetMessageId)
+				   END     as retweetNums,
+			   #评论数
+			   (select count(id) from COMMENT com where com.messageId = m.id) as commentNums
+		from MESSAGE m
+				 LEFT JOIN CREW c on m.creator = c.id
+				 LEFT JOIN CREW rc on m.retweetorId = rc.id
+				 LEFT JOIN LIKE_RECORD l on m.id = l.messageId and l.likerId = ${id}
+				 LEFT JOIN MESSAGE rm on m.id = rm.retweetMessageId and rm.retweetorId = ${id}
+				 LEFT JOIN MESSAGE rmrm on m.retweetMessageId = rmrm.retweetMessageId and rmrm.retweetorId = ${id}
+# 		where m.creator in (${id}, (select followingId from FOLLOW where followerId = ${id}))
+		where m.creator in ((select followingId from FOLLOW where followerId = ${id}))
+		order by m.createTime desc
+		<include refid="com.paopao.mapper.BaseMapper.pager"/>
+	</select>
+
+	<select id="getMessageByIdAndCurUserId" resultMap="messageResultMap">
+		select m.id,
+			   m.html,
+			   m.createTime,
+			   m.creator,
+			   c.crewName  as creatorName,
+			   c.avatarUrl as avatarUrl,
+			   c.mail as mail,
+			   #判断当前用户是否喜欢此伊文
+			   (select id from LIKE_RECORD where likerId = ${curUserId} and messageId = ${messageId}) as likeRecordId,
+			   #判断当前用户是否转推此伊文
+			   (select id from MESSAGE where retweetorId = ${curUserId} and retweetMessageId = ${messageId}) as  doCurUserRetweet,
+			   #喜欢数
+			   (select count(id) from LIKE_RECORD where messageId = ${messageId}) as likeNums,
+			   #转推数
+			   (select count(id) from MESSAGE where retweetMessageId = ${messageId}) as retweetNums
+		from MESSAGE m
+				 LEFT JOIN CREW c on m.creator = c.id
+		where m.id = ${messageId}
+	</select>
+
+</mapper>
+
+
+
+
